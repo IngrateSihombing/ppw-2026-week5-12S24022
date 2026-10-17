@@ -22,8 +22,31 @@
     @endif
 
     <div class="card shadow-sm">
-        <div class="card-body">
-            <div class="table-responsive">
+        
+<div class="card-body">
+    <form action="{{ route('bukus.index') }}" method="GET" class="mb-4">
+        <div class="input-group">
+            <input
+                type="text"
+                name="search"
+                class="form-control"
+                placeholder="Cari judul, penulis, ISBN, atau kategori..."
+                value="{{ request('search') }}">
+
+            <button type="submit" class="btn btn-primary">
+                Cari
+            </button>
+
+            @if (request('search'))
+                <a href="{{ route('bukus.index') }}" class="btn btn-outline-secondary">
+                    Reset
+                </a>
+            @endif
+        </div>
+    </form>
+
+    <div class="table-responsive">
+
                 <table class="table table-hover align-middle">
                     <thead class="table-light">
                         <tr>
@@ -33,7 +56,8 @@
                             <th>Kategori</th>
                             <th>Tahun Terbit</th>
                             <th>Stok</th>
-                            <th>Aksi</th>
+<th>Jumlah Peminjaman</th>
+<th>Aksi</th>
                         </tr>
                     </thead>
 
@@ -54,6 +78,7 @@
                                 <td>{{ $buku->kategori->nama_kategori }}</td>
                                 <td>{{ $buku->tahun_terbit }}</td>
                                 <td>{{ $buku->stok }}</td>
+                                <td>{{ $buku->peminjamans_count }}</td>
 
                                 <td>
                                     <button
@@ -88,7 +113,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="text-center">
+                                <td colspan="8" class="text-center">
                                     Belum ada data buku.
                                 </td>
                             </tr>

@@ -10,12 +10,30 @@ class BukuController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    
+public function index(Request $request)
 {
-    $bukus = Buku::with('kategori')->paginate(10);
+    $bukus = Buku::with('kategori')
+        ->withCount('peminjamans')
+        ->when($request->filled('search'), function ($query) use ($request) {
+            $search = $request->search;
+
+            $query->where(function ($q) use ($search) {
+                $q->where('judul', 'like', "%{$search}%")
+                    ->orWhere('penulis', 'like', "%{$search}%")
+                    ->orWhere('isbn', 'like', "%{$search}%")
+                    ->orWhereHas('kategori', function ($kategoriQuery) use ($search) {
+                        $kategoriQuery->where('nama_kategori', 'like', "%{$search}%");
+                    });
+            });
+        })
+        ->latest()
+        ->paginate(10)
+        ->withQueryString();
 
     return view('bukus.index', compact('bukus'));
 }
+
 
     /**
      * Show the form for creating a new resource.
