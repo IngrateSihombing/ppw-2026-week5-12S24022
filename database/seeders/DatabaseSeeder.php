@@ -14,4 +14,4 @@ class DatabaseSeeder extends Seeder
             PustakawanSeeder::class,
         ]);
     }
-}
+}   
