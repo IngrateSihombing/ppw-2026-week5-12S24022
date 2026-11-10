@@ -1,9 +1,10 @@
 # SIPUS-Del — Sistem Informasi Perpustakaan
 
-SIPUS-Del adalah aplikasi web berbasis Laravel 11 yang digunakan untuk mengelola data buku, kategori buku, dan transaksi peminjaman serta pengembalian buku. Aplikasi ini dilengkapi autentikasi pustakawan, pencarian buku, dan dashboard informasi perpustakaan.
+SIPUS-Del adalah aplikasi web berbasis Laravel 11 yang digunakan untuk mengelola data buku, kategori buku, serta transaksi peminjaman dan pengembalian buku. Aplikasi ini dilengkapi autentikasi pustakawan, dashboard informasi perpustakaan, SOAP Web Service, REST API, dan integrasi dengan layanan eksternal OpenLibrary.
 
 ## Fitur Utama
 
+### 1. Pengelolaan Perpustakaan
 - Login dan logout pustakawan.
 - Menampilkan dashboard statistik perpustakaan.
 - Menampilkan, menambah, mengedit, dan menghapus data buku.
@@ -12,10 +13,24 @@ SIPUS-Del adalah aplikasi web berbasis Laravel 11 yang digunakan untuk mengelola
 - Pagination untuk menampilkan daftar buku.
 - Relasi Buku dan Kategori menggunakan Eloquent ORM.
 - Eager loading dan `withCount()` untuk membantu efisiensi query.
+
+### 2. Peminjaman dan Pengembalian
 - Peminjaman dan pengembalian buku dengan validasi stok.
 - Pencegahan peminjaman ketika stok buku habis.
 - Transaksi database menggunakan `DB::transaction()` dan penguncian data menggunakan `lockForUpdate()`.
 - Pengelolaan session dan cookie untuk mendukung autentikasi dan menyimpan informasi peminjam terakhir.
+
+### 3. Web Service dan REST API
+- SOAP Web Service untuk pemeriksaan status clearance peminjam.
+- REST API dengan prefix versi `/api/v1`.
+- Autentikasi REST API menggunakan Laravel Sanctum dengan Bearer Token.
+- Pengelolaan token melalui endpoint login dan logout.
+- Pengambilan daftar buku melalui REST API.
+- Eloquent Resource untuk membentuk respons JSON.
+- Penerapan tautan HATEOAS pada respons data buku.
+- Penanganan kesalahan API menggunakan format RFC 7807 (`application/problem+json`).
+- Integrasi REST API dengan OpenLibrary sebagai layanan eksternal.
+- Dokumentasi API menggunakan OpenAPI 3.0.3.
 
 ## Teknologi
 
@@ -25,6 +40,11 @@ SIPUS-Del adalah aplikasi web berbasis Laravel 11 yang digunakan untuk mengelola
 - Bootstrap
 - Vite
 - Eloquent ORM
+- Laravel Sanctum
+- SOAP
+- REST API
+- OpenAPI 3.0.3
+- OpenLibrary API
 
 ## Persiapan
 
@@ -62,13 +82,13 @@ Pastikan PHP, Composer, Node.js, npm, dan Laragon sudah terpasang.
    php artisan migrate
    ```
 
-7. Jalankan seeder untuk mengisi data awal:
+7. Jalankan seeder untuk mengisi data awal jika diperlukan:
 
    ```bash
    php artisan db:seed
    ```
 
-   Pastikan seluruh seeder berhasil sebelum menggunakan aplikasi.
+   Pastikan konfigurasi database dan isi seeder sesuai dengan kondisi lingkungan lokal sebelum menjalankannya.
 
 8. Jalankan aplikasi Laravel:
 
@@ -119,31 +139,137 @@ Aplikasi menyediakan login dan logout pustakawan. Autentikasi menggunakan `Auth:
 
 Saat logout, session diinvalidasi dan token CSRF diperbarui. Aplikasi juga menggunakan cookie untuk menyimpan informasi peminjam terakhir dengan pengaturan keamanan seperti `HttpOnly` dan `SameSite=Lax`.
 
-## Pengujian
+## SOAP Web Service
 
-Pengujian aplikasi mencakup:
+SOAP Web Service digunakan untuk memeriksa status clearance peminjam berdasarkan NIM.
 
-- Login dan logout pustakawan.
-- Pembatasan akses halaman untuk pengguna yang belum login.
-- Pencarian dan pagination daftar buku.
-- Peminjaman buku yang stoknya tersedia.
-- Penolakan peminjaman saat stok habis.
-- Perubahan stok ketika peminjaman dan pengembalian.
-- Konsistensi status transaksi peminjaman.
-- Pemeriksaan cookie dan session melalui browser DevTools.
+Endpoint SOAP:
 
-Screenshot hasil pengujian dapat ditambahkan pada bagian dokumentasi pengujian atau disimpan dalam folder dokumentasi proyek.
+```text
+POST http://127.0.0.1:8000/soap/sipus
+```
+
+WSDL:
+
+```text
+http://127.0.0.1:8000/soap/sipus.wsdl
+```
+
+Operasi yang disediakan adalah `CheckClearanceStatus`. Layanan memberikan informasi jumlah peminjaman aktif dan status clearance peminjam. Permintaan yang tidak memenuhi ketentuan akan menghasilkan SOAP Fault.
+
+## REST API
+
+REST API menggunakan prefix versi `v1` dan tersedia melalui:
+
+```text
+http://127.0.0.1:8000/api/v1
+```
+
+### Daftar Endpoint
+
+| Method | Endpoint | Keterangan | Autentikasi |
+|---|---|---|---|
+| POST | `/login` | Login dan memperoleh Bearer Token | Tidak |
+| POST | `/logout` | Logout dan mencabut token | Ya |
+| GET | `/bukus` | Menampilkan daftar buku | Ya |
+| GET | `/openlibrary/search?q=kata_kunci` | Mencari buku melalui OpenLibrary | Ya |
+
+Autentikasi REST API menggunakan Laravel Sanctum. Pengguna melakukan login untuk memperoleh Bearer Token, kemudian menyertakan token tersebut pada header `Authorization` ketika mengakses endpoint yang dilindungi.
+
+Contoh header:
+
+```http
+Accept: application/json
+Authorization: Bearer {token}
+```
+
+### Eloquent Resource dan HATEOAS
+
+Data buku disajikan menggunakan `BukuResource` agar struktur respons JSON lebih konsisten.
+
+Respons buku juga dilengkapi tautan navigasi HATEOAS:
+
+- `self`: tautan referensi menuju sumber daya buku.
+- `collection`: tautan menuju koleksi buku.
+
+### RFC 7807
+
+Penanganan kesalahan REST API menggunakan format RFC 7807 dengan Content-Type:
+
+```text
+application/problem+json
+```
+
+Respons kesalahan memuat informasi seperti `type`, `title`, `status`, `detail`, dan `errors` untuk membantu konsumen API memahami masalah yang terjadi.
+
+## Integrasi OpenLibrary API
+
+SIPUS-Del terintegrasi dengan OpenLibrary untuk melakukan pencarian informasi buku melalui layanan eksternal.
+
+Endpoint internal:
+
+```text
+GET /api/v1/openlibrary/search?q=harry+potter
+```
+
+Informasi yang dapat ditampilkan mencakup:
+
+- Judul buku.
+- Nama penulis.
+- Tahun publikasi pertama.
+- ISBN.
+- Identitas buku OpenLibrary.
+
+Parameter pencarian `q` wajib diisi dan memiliki panjang minimal dua karakter. Jika permintaan tidak memenuhi aturan validasi, API memberikan respons HTTP 422.
+
+## Dokumentasi dan Pengujian API
+
+Dokumentasi REST API menggunakan OpenAPI 3.0.3 dan disimpan pada:
+
+```text
+openapi.yaml
+```
+
+Dokumentasi tersebut mencakup endpoint login, logout, daftar buku, pencarian OpenLibrary, serta skema autentikasi Bearer Token. Validasi dokumentasi dilakukan menggunakan Swagger Editor.
+
+File Postman disiapkan pada direktori:
+
+```text
+docs/postman/
+```
+
+File yang tersedia:
+
+- `SIPUS-Del-Collection.json`
+- `SIPUS-Del-Environment.json`
+
+Kedua file telah divalidasi menggunakan PowerShell. Pengujian endpoint yang dicatat dalam laporan dilakukan menggunakan PowerShell, bukan melalui aplikasi Postman Desktop.
+
+Laporan hasil pengujian tersedia pada:
+
+```text
+docs/API-Testing-Report.md
+```
+
+Pengujian mencakup SOAP, REST API, autentikasi Sanctum, HATEOAS, validasi OpenLibrary, serta penanganan kesalahan RFC 7807.
 
 ## Struktur Proyek
 
 - `app/Models` — model Buku, Kategori, Peminjaman, dan User.
-- `app/Http/Controllers` — controller untuk autentikasi, dashboard, buku, kategori, dan peminjaman.
+- `app/Http/Controllers` — controller untuk autentikasi, dashboard, buku, kategori, peminjaman, SOAP, dan REST API.
+- `app/Http/Resources` — resource untuk membentuk respons API.
 - `database/migrations` — struktur tabel database.
 - `database/factories` — pembuatan data contoh.
 - `database/seeders` — pengisian data awal.
 - `resources/views` — tampilan aplikasi.
-- `routes/web.php` — definisi rute aplikasi.
+- `routes/web.php` — definisi rute aplikasi web.
+- `routes/api.php` — definisi rute REST API.
+- `docs/postman` — Postman Collection dan Environment.
+- `docs/API-Testing-Report.md` — laporan hasil pengujian API.
+- `openapi.yaml` — dokumentasi OpenAPI.
 
 ## Keamanan Repository
 
 File `.env` berisi konfigurasi lokal dan tidak boleh diunggah ke repository publik. Gunakan `.env.example` sebagai contoh konfigurasi. Folder `vendor` dan `node_modules` juga tidak perlu diunggah ke repository.
+
+Jangan menyimpan password, Bearer Token, atau kredensial asli ke dalam dokumentasi maupun repository publik.

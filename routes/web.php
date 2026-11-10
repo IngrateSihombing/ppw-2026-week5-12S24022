@@ -1,6 +1,5 @@
-
 <?php
-
+use App\Http\Controllers\Soap\LibrarySoapController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BukuController;
 use App\Http\Controllers\DashboardController;
@@ -37,3 +36,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])
         ->name('logout');
 });
+
+// SOAP Web Service
+Route::get('/soap/sipus.wsdl', [LibrarySoapController::class, 'wsdl']);
+
+Route::post('/soap/sipus', [LibrarySoapController::class, 'checkClearance']);

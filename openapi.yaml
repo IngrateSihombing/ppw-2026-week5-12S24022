@@ -1,0 +1,131 @@
+
+openapi: 3.0.3
+
+info:
+  title: SIPUS-Del API
+  description: Dokumentasi REST API Sistem Informasi Perpustakaan Del (SIPUS-Del).
+  version: 1.0.0
+
+servers:
+  - url: http://127.0.0.1:8000/api/v1
+    description: Local Development Server
+
+tags:
+  - name: Authentication
+    description: Autentikasi pengguna
+  - name: Books
+    description: Pengelolaan data buku
+  - name: OpenLibrary
+    description: Pencarian metadata buku dari OpenLibrary
+
+paths:
+  /login:
+    post:
+      tags:
+        - Authentication
+      summary: Login pengguna
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: pustakawan@del.ac.id
+                password:
+                  type: string
+                  format: password
+                  example: password
+      responses:
+        '200':
+          description: Login berhasil dan Bearer Token diberikan
+        '401':
+          description: Email atau password salah
+        '422':
+          description: Validasi gagal
+
+  /logout:
+    post:
+      tags:
+        - Authentication
+      summary: Logout pengguna
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Logout berhasil
+        '401':
+          description: Token tidak valid atau tidak tersedia
+
+  /bukus:
+    get:
+      tags:
+        - Books
+      summary: Mengambil daftar buku
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Pencarian berdasarkan judul, pengarang, atau ISBN
+        - name: kategori_id
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: tersedia
+          in: query
+          required: false
+          schema:
+            type: integer
+            enum: [1]
+        - name: sort
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [judul, -judul]
+      responses:
+        '200':
+          description: Daftar buku berhasil diambil
+        '401':
+          description: Autentikasi diperlukan
+
+  /openlibrary/search:
+    get:
+      tags:
+        - OpenLibrary
+      summary: Mencari metadata buku melalui OpenLibrary
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+          example: harry potter
+      responses:
+        '200':
+          description: Pencarian berhasil
+        '422':
+          description: Parameter pencarian tidak valid
+        '502':
+          description: Gagal mengambil data dari OpenLibrary
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Sanctum Token
